@@ -6,4 +6,11 @@
     </style>
 
     <style name="Theme.ProjectManageTool" parent="Base.Theme.ProjectManageTool" />
+
+    <style name = "NoActionBar" parent="Theme.ProjectManageTool">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+
 </resources>
