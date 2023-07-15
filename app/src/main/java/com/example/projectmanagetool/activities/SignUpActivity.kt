@@ -1,82 +1,77 @@
 package com.example.projectmanagetool.activities
 
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.Toolbar
 import com.example.projectmanagetool.R
+import com.example.projectmanagetool.databinding.ActivitySignUpBinding
+import com.example.projectmanagetool.firebase.FirestoreClass
+import com.example.projectmanagetool.models.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 class SignUpActivity : BaseActivity() {
 
-    private var etName : EditText? = null
-    private var etEmail : EditText? = null
-    private var etPass : EditText? = null
-
-    private var btnSignUp : AppCompatButton? = null
+    private lateinit var auth: FirebaseAuth
+    private var binding: ActivitySignUpBinding? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_sign_up)
-        setUpActionBar()
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-        )
+        binding = ActivitySignUpBinding.inflate(layoutInflater)
+        setContentView(binding!!.root)
 
-        etName = findViewById(R.id.et_name)
-        etEmail = findViewById(R.id.et_email)
-        etPass = findViewById(R.id.et_password)
-        btnSignUp = findViewById(R.id.btn_sign_up)
+        auth = Firebase.auth
 
-        btnSignUp?.setOnClickListener{
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            window.insetsController?.hide(WindowInsets.Type.statusBars())
+        }else{
+            @Suppress("DEPRECATION")
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            )
+        }
 
+        binding?.btnSignUp?.setOnClickListener{
             registerUser()
         }
 
+        setUpActionBar()
 
     }
     private fun setUpActionBar(){
-        val toolbarSignUp : Toolbar = findViewById(R.id.toolbar_sign_up_activity)
-        setSupportActionBar(toolbarSignUp)
 
-        val actionBar = supportActionBar
-        if(actionBar != null){
-            actionBar.setDisplayHomeAsUpEnabled(true)
-            actionBar.setHomeAsUpIndicator(R.drawable.ic_black_color_back_24dp)
+        setSupportActionBar(binding?.toolbarSignUpActivity)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_black_color_back_24dp)
 
-        }
-
-        toolbarSignUp.setNavigationOnClickListener { onBackPressed() }
+        binding?.toolbarSignUpActivity?.setNavigationOnClickListener { onBackPressed() }
     }
 
     private fun registerUser(){
-        val name: String = etName!!.text.toString().trim{ it <= ' ' }
-        val email: String = etEmail!!.text.toString().trim{ it <= ' ' }
-        val password: String = etPass!!.text.toString().trim{it <= ' '}
+        val name: String = binding?.etNameSignUp?.text.toString().trim{ it <= ' ' }
+        val email: String = binding?.etEmailSignUp?.text.toString().trim{ it <= ' ' }
+        val password: String = binding?.etPasswordSignUp?.text.toString().trim{ it <= ' ' }
 
-        Log.e("sign up", "button clicked`")
         if(validateForm(name, email, password)){
             showProgressDialog(resources.getString(R.string.please_wait))
-            FirebaseAuth.getInstance()
-                .createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
-                    hideProgressDialog()
+            auth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         val firebaseUser: FirebaseUser = task.result!!.user!!
                         val registeredEmail = firebaseUser.email!!
-                        Toast.makeText(
-                            this,
-                            "$name you have successfully registered the email address $registeredEmail",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        FirebaseAuth.getInstance().signOut()
-                        finish()
+                        val user = User(firebaseUser.uid, name, registeredEmail)
+                        FirestoreClass().registerUser(this, user)
                     } else {
                         Toast.makeText(
                             this,
@@ -88,10 +83,9 @@ class SignUpActivity : BaseActivity() {
 
         }
     }
-
-    private fun validateForm(name : String, email : String, password : String) : Boolean{
+    private fun validateForm(name : String, email : String, password : String) : Boolean {
         Log.e("here", "here")
-        return when{
+        return when {
             TextUtils.isEmpty(name) -> {
                 showErrorSnackBar("Please enter a name")
                 false
@@ -102,12 +96,25 @@ class SignUpActivity : BaseActivity() {
             }
             TextUtils.isEmpty(password) -> {
                 showErrorSnackBar("Please enter a password")
-                Log.e("pass", "Missing passowrd")
+                Log.e("pass", "Missing password")
                 false
-            }else -> {
+            }
+            else -> {
                 true
             }
 
         }
     }
+    fun userRegisteredSuccess(){
+        Toast.makeText(
+            this@SignUpActivity,
+            "Successfully registered",
+            Toast.LENGTH_LONG
+        ).show()
+
+        hideProgressDialog()
+        auth.signOut()
+        finish()
+    }
+
 }
